@@ -1,53 +1,3 @@
-"""
-PAC-MAN DELUXE  -  NIGHTMARE EDITION
-====================================
-Requirements:
-    pip install pygame
-
-Run:
-    python pacman_deluxe.py            (ghosts remember your habits between runs)
-    python pacman_deluxe.py --fresh    (ignore / do not write the habit file)
-
-Controls:
-    Arrow keys / WASD = move
-    1-4               = difficulty (restarts the game): EASY / HARD / BRUTAL / NIGHTMARE
-    5 or T            = toggle ADAPTIVE difficulty (dynamic pressure)
-    V                 = toggle "AI vision" (ghost targets, predicted route, ambush spots)
-    K                 = make the ghosts forget your habits
-    M                 = mute / unmute
-    Enter             = next level after a win / restart after game over
-    Esc               = quit
-
-All 17 ideas from the "make it harder" list are implemented, and the ghosts are
-NEVER omniscient. They know your position, your direction and what they have
-*observed* you do. They never see future key presses or your intended turn.
-
- 1. Predict Pac-Man          : ghosts aim at where your observed habits say you will be.
-                               EASY 0s, HARD 1s, BRUTAL 2s, NIGHTMARE 3.5s (up to 5s later on).
- 2. Blinky learns your route : a decaying "heat map" of tiles you visited; Blinky cuts it off.
- 3. Pinky blocks escapes     : finds the next junction ahead and blocks your most likely exit.
- 4. Inky + Blinky coordinate : Inky targets the mirror of Blinky's position through you, so
-                               one ghost pushes you into the other.
- 5. Clyde is unpredictable   : chase / fake-retreat / ambush / patrol, on random timers,
-                               with sudden turn-arounds at intersections.
- 6. Team formations          : CHASER / AMBUSHER / INTERCEPTOR / CUTTER take different
-                               exits of your junction and surround the escape routes.
- 7. Intersection prediction  : per-junction choice statistics (LEFT 70% / RIGHT 20% ...).
- 8. Ghosts learn your habits : favourite direction, escape, tunnel and corner (saved to disk).
- 9. Dynamic difficulty       : "pressure" rises while you play well and drops when you struggle.
-10. Ghost intelligence tiers : IQ 1..6 per ghost (basic, prediction, interception,
-                               coordination, adaptive, nightmare). IQ grows with level.
-11. Harder maze              : closing gates, one-way passages, teleporters, secret
-                               ghost-only doors behind "safe" dead ends.
-12. Dangerous fruit          : speed-boost fruit, enrage fruit (x2 points, faster ghosts) and
-                               fake fruit that vanishes when touched.
-13. Strategic power pellets  : NORMAL (cream), MEGA (gold), RISK (red), CHAIN (purple).
-14. Proximity speed          : ghosts get very slightly faster the closer they are.
-15. Short vs long routes     : ghosts pick a direct chase or a cut-off route each decision.
-16. Hunt mode                : SCATTER, CHASE, CHASE, HUNT... late-game team hunting.
-17. Nightmare mode          : everything above, reduced fright time, smarter ghost-house
-                               release, Elroy Blinky, and difficulty that grows every level.
-"""
 
 import json
 import math
@@ -61,9 +11,6 @@ from collections import deque
 import pygame
 
 
-# =========================================================
-# SETTINGS
-# =========================================================
 
 W, H = 31, 29
 T = 24
@@ -88,8 +35,7 @@ KEYS = {
     pygame.K_RIGHT: RIGHT, pygame.K_d: RIGHT,
 }
 
-# Expanded roster. The first four keep the classic Pac-Man roles; every
-# additional ghost has a different job instead of being a faster clone.
+
 GHOST_NAMES = [
     "BLINKY", "PINKY", "INKY", "CLYDE",
     "VIOLET", "TOXIC", "PHANTOM", "BRUTE", "FROST",
@@ -132,9 +78,7 @@ SCATTER_TARGETS = [
     (W // 2 - 5, H // 2), (W // 2 + 5, H // 2), (W // 2, H // 2 - 5),
     (W // 2, H // 2 + 5),
 ]
-PATROL_TILES = [(7, 7), (23, 7), (7, 21), (23, 21)]      # TL, TR, BL, BR
-# Fruit locations are selected dynamically from the maze now.  This list is kept
-# only as a fallback for very unusual maps where there are not enough candidates.
+PATROL_TILES = [(7, 7), (23, 7), (7, 21), (23, 21)]     .
 FRUIT_SPOTS = [(15, 5), (5, 15), (25, 15), (15, 21), (9, 9), (21, 9)]
 
 FRUIT_TYPES = [
@@ -142,7 +86,7 @@ FRUIT_TYPES = [
     ("MELON", 1000), ("GALAXIAN", 2000), ("BELL", 3000), ("KEY", 5000),
 ]
 
-# Idea 13: power pellet flavours.
+
 PELLET_TYPES = {
     "normal": dict(mult=1.0, color=(255, 216, 176), radius=7, label="POWER PELLET"),
     "mega":   dict(mult=1.7, color=(255, 210, 40),  radius=9, label="MEGA PELLET!"),
@@ -150,9 +94,6 @@ PELLET_TYPES = {
     "chain":  dict(mult=1.0, color=(200, 90, 255),  radius=7, label="CHAIN PELLET - NEARBY GHOSTS ONLY"),
 }
 
-# Idea 10 / 17: difficulty profiles. "iq" is the per-ghost intelligence tier
-# (Blinky, Pinky, Inky, Clyde). 1 basic, 2 prediction, 3 interception,
-# 4 coordination, 5 adaptive, 6 nightmare.
 DIFFICULTIES = {
     1: dict(name="EASY", iq=(1, 1, 1, 1), prediction=0.0, speed=0.00, fright=1.30,
             gates=0, oneways=0, secrets=0, tele=1, fake=0.00, hunt=0),
@@ -214,9 +155,6 @@ def build_schedule(level, diff):
     return sched
 
 
-# =========================================================
-# BUILT-IN SOUND SYSTEM
-# =========================================================
 
 class SoundFX:
     """Generates simple arcade-style sounds in memory (no files needed)."""
@@ -278,9 +216,7 @@ class SoundFX:
         return not self.muted
 
 
-# =========================================================
-# HABITS  (ideas 2, 7, 8)
-# =========================================================
+
 
 class Habits:
     """
@@ -306,7 +242,7 @@ class Habits:
         self.heat = {}       # tile -> decaying visit heat (route memory)
         self.heat_t = 0.0
 
-    # ---- recording -------------------------------------------------
+   
     def visit(self, t):
         self.heat[t] = self.heat.get(t, 0.0) + 1.0
 
@@ -337,7 +273,7 @@ class Habits:
     def record_tunnel(self, entry):
         self.tunnels[entry] = self.tunnels.get(entry, 0) + 1
 
-    # ---- queries ---------------------------------------------------
+
     def probs(self, tile, cur, exits):
         """Probability of each exit at a junction: [(direction, p), ...]."""
         gl = []
@@ -425,17 +361,8 @@ class Habits:
             pass
 
 
-# =========================================================
-# MAZE  (idea 11)
-# =========================================================
-
 class Maze:
-    """
-    Deterministic 31x29 connected maze plus dynamic features:
-    gates that open/close, one-way passages, teleporters, secret ghost-only doors.
-    Grid characters: '#' wall, 'S' secret wall (ghosts pass), '-' ghost-house door,
-                     '.' dot, 'o' power pellet, ' ' empty.
-    """
+
 
     def __init__(self, level, difficulty):
         self.level = level
@@ -485,7 +412,6 @@ class Maze:
             else:
                 stack.pop()
 
-        # Loops: knock out single wall segments so intersections and flanking routes exist.
         for y in range(2, H - 2):
             for x in range(2, W - 2):
                 if g[y][x] == '#' and (x + y) % 2 == 1 and not (10 <= x <= 20 and 11 <= y <= 17):
@@ -494,7 +420,7 @@ class Maze:
                     if (horizontal or vertical) and rng.random() < 0.18:
                         g[y][x] = '.'
 
-        # Ghost house: sealed ring, one door on top.
+ 
         for y in range(12, 17):
             for x in range(11, 20):
                 g[y][x] = '#'
@@ -738,9 +664,7 @@ class Ent:
         return bool(self.dx or self.dy)
 
 
-# =========================================================
-# GAME
-# =========================================================
+
 
 class Game:
     def __init__(self, sounds, habits):
@@ -757,9 +681,7 @@ class Game:
     def cfg(self):
         return DIFFICULTIES[self.difficulty]
 
-    # -----------------------------------------------------
-    # Setup
-    # -----------------------------------------------------
+    
 
     def new_game(self):
         self.level = 1
@@ -918,10 +840,7 @@ class Game:
             return self.can_enter_pac(x, y, dx, dy)
         return self.can_enter_ghost(e, x, y, dx, dy)
 
-    # -----------------------------------------------------
-    # Movement
-    # -----------------------------------------------------
-
+    
     def step(self, e, speed, dt, decide):
         if not e.moving:
             decide(e)
@@ -1042,9 +961,6 @@ class Game:
             s *= 0.66 if frost_dist < 2.2 else (0.76 if frost_dist < 4.2 else (0.87 if frost_dist < 6.0 else 0.94))
         return max(3.0, s)
 
-    # -----------------------------------------------------
-    # AI: shared knowledge (built from OBSERVATIONS only)
-    # -----------------------------------------------------
 
     def pac_dir_index(self):
         p = self.pac
@@ -1250,9 +1166,7 @@ class Game:
         cap = self.pac_speed() * (1.42 if g.i == 9 else 1.18)
         return min(spd, max(4.0, cap))
 
-    # -----------------------------------------------------
-    # AI: targets
-    # -----------------------------------------------------
+  
 
     def classic_target(self, g):
         p = self.pac
@@ -2210,9 +2124,6 @@ class Game:
                 self.set_banner("WARNING: SOMETHING IS NEARBY...", 1.0)
         self.warning_t = max(0.0, self.warning_t - dt)
 
-    # -----------------------------------------------------
-    # Drawing
-    # -----------------------------------------------------
 
     def build_wall_surface(self):
         surf = pygame.Surface((W * T, H * T))
@@ -2562,7 +2473,7 @@ async def main():
     pygame.init()
 
     screen = pygame.display.set_mode((W * T, H * T + TOP + PANEL))
-    pygame.display.set_caption("PAC-MAN DELUXE - 19 GHOST NIGHTMARE EDITION")
+    pygame.display.set_caption("PAINFUL PAC-MAN")
 
     font = pygame.font.SysFont("couriernew", 17, bold=True)
     small = pygame.font.SysFont("couriernew", 14, bold=True)
